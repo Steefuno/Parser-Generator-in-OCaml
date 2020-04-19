@@ -343,58 +343,61 @@ let tryDerive (g : grammar) (inputStr : string list) : bool =
 			(stack, str)
 		| firstInStack::nextInStack ->
 			(* if stack exists *)
-			match str with
-			| [] ->
-				(* end on string empty *)
-				(stack, str)
-			| firstInStr::nextInStr ->
-				(* if string exists *)
-				(* if firstInStack is a nonTerminal *)
-				if SMap.mem firstInStack firstMap then
-					(* remove from predict set sets that we cannot expand to *)
-					let tryPredictSetsList = filterRules firstInStack firstInStr tryPredictSetsList in
-					match tryPredictSetsList with
+			(* if firstInStack is a nonTerminal *)
+			if SMap.mem firstInStack firstMap then
+				let (firstInStr, nextInStr) =
+					match str with
 					| [] ->
-						(* if we can't expand to anything *)
-						(stack, str)
-					| ((_, seq), _)::nextPredictSets ->
-						(* if we can expand *)
-						(* match terminals of str and sequence *)
-						let (newStr, sequence, isMatched) = matchTerminals str seq in
-						if isMatched then
-							(* try to continue matching *)
-							let newStack = List.append sequence nextInStack in
-(*							let _ = Printf.printf "\tExpanded %s to:\n\t" firstInStack in
-							let _ = print_stringList seq in
-*)							let (newStack, newStr) = matchNonTerminals newStack newStr predictSetsList in
-							(* matched *)
-							if (newStack = []) && (newStr = []) then
-								match newStack with
-								| [] ->
-									(* if finished *)
-									(newStack, newStr)
-								| _::_ ->
-									(* if this sequence has more terminals after first nonTerminals *)
-									(* continue matching *)
-									matchNonTerminals newStack newStr predictSetsList
-							(* if failed to match *)
-							else
-(*								let _ = Printf.printf "Revert:\n" in
-*)								(* get next possible sequence *)
-								matchNonTerminals stack str nextPredictSets
-						(* cannot match terminals *)
-						else
-							(stack, str)
-				(* if firstInStack is a terminal *)
-				else
-					(* remove terminals from stack and str *)
-					let (newStr, newStack, isMatched) = matchTerminals str stack in
+						(* string doesn't exist, so we will use eof in predict sets *)
+						("eof", [])
+					| firstInStr::nextInStr ->
+						(* string exists, so predict using first in string *)
+						(firstInStr, nextInStr)
+				in (* end (firstInStr, nextInStr) *)
+				(* remove from predict set sets that we cannot expand to *)
+				let tryPredictSetsList = filterRules firstInStack firstInStr tryPredictSetsList in
+				match tryPredictSetsList with
+				| [] ->
+					(* if we can't expand to anything *)
+					(stack, str)
+				| ((_, seq), _)::nextPredictSets ->
+					(* if we can expand *)
+					(* match terminals of str and sequence *)
+					let (newStr, sequence, isMatched) = matchTerminals str seq in
 					if isMatched then
-						(* continue matchingNonTerminals *)
-						matchNonTerminals newStack newStr predictSetsList
-					(* if cannot remove terminals *)
+						(* try to continue matching *)
+						let newStack = List.append sequence nextInStack in
+(*						let _ = Printf.printf "\tExpanded %s to:\n\t" firstInStack in
+						let _ = print_stringList seq in
+*)						let (newStack, newStr) = matchNonTerminals newStack newStr predictSetsList in
+						(* matched *)
+						if (newStack = []) && (newStr = []) then
+							match newStack with
+							| [] ->
+								(* if finished *)
+								(newStack, newStr)
+							| _::_ ->
+								(* if this sequence has more terminals after first nonTerminals *)
+								(* continue matching *)
+								matchNonTerminals newStack newStr predictSetsList
+						(* if failed to match *)
+						else
+(*							let _ = Printf.printf "Revert:\n" in
+*)							(* get next possible sequence *)
+							matchNonTerminals stack str nextPredictSets
+					(* cannot match terminals *)
 					else
 						(stack, str)
+			(* if firstInStack is a terminal *)
+			else
+				(* remove terminals from stack and str *)
+				let (newStr, newStack, isMatched) = matchTerminals str stack in
+				if isMatched then
+					(* continue matchingNonTerminals *)
+					matchNonTerminals newStack newStr predictSetsList
+				(* if cannot remove terminals *)
+				else
+					(stack, str)
 	in (* end matchNonTerminals *)
 	let (finalStack, finalString) = matchNonTerminals stack inputStr predictSetsList in
 	if (finalStack = []) && (finalString = []) then
